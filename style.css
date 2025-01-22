@@ -231,4 +231,31 @@ button:hover {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #4d4d4d;
+}
+
+.search-container {
+    flex: 1;
+    margin: 0 1rem;
+}
+
+#searchInput {
+    width: 100%;
+    height: 28px; /* Match button height */
+    background-color: var(--bg-lighter);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 0 0.75rem;
+    font-family: inherit;
+    font-size: 0.813rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+#searchInput:focus {
+    border-color: var(--primary-color);
+}
+
+#searchInput::placeholder {
+    color: var(--text-secondary);
 } 
