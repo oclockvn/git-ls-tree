@@ -62,14 +62,73 @@ button:hover {
 .toggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     cursor: pointer;
     font-size: 0.875rem;
     color: var(--text-secondary);
 }
 
+/* Hide the default checkbox */
 .toggle input[type="checkbox"] {
-    accent-color: var(--primary-color);
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+/* Create custom toggle switch */
+.toggle span {
+    position: relative;
+    padding-left: 3rem;
+    user-select: none;
+}
+
+.toggle span::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 2.25rem;
+    height: 1.25rem;
+    border-radius: 1rem;
+    background-color: var(--bg-lighter);
+    transition: background-color 0.2s ease;
+}
+
+.toggle span::after {
+    content: '';
+    position: absolute;
+    left: 0.25rem;
+    top: 0.25rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background-color: var(--text-secondary);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+/* Toggle switch active state */
+.toggle input:checked + span::before {
+    background-color: color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+.toggle input:checked + span::after {
+    transform: translateX(1rem);
+    background-color: var(--primary-color);
+}
+
+/* Toggle switch hover state */
+.toggle:hover span::before {
+    background-color: var(--border-color);
+}
+
+.toggle input:checked:hover + span::before {
+    background-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
+}
+
+/* Toggle switch focus state */
+.toggle input:focus-visible + span::before {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
 }
 
 .middle-section {
