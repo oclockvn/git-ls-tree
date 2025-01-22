@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBtn = document.getElementById('clearBtn');
     const commentToggle = document.getElementById('commentToggle');
     const trailingToggle = document.getElementById('trailingToggle');
+    const searchInput = document.getElementById('searchInput');
 
     // Load saved text from localStorage if it exists
     const savedText = localStorage.getItem('mirrorText');
@@ -64,7 +65,17 @@ document.addEventListener('DOMContentLoaded', () => {
         processInput('');
         localStorage.setItem('mirrorText', '');
     });
-}); 
+
+    // Create debounced version of processInput
+    const debouncedProcessInput = debounce((text) => {
+        processInput(text);
+    }, 300); // 300ms delay
+
+    // Update search input handler to use debounced function
+    searchInput.addEventListener('input', () => {
+        debouncedProcessInput(inputText.value);
+    });
+});
 
 function processInput(text) {
     // Split the input text into an array of files
@@ -191,4 +202,94 @@ function convertToTreeStructure(files) {
     });
 
     return '.\n' + buildTree(root);
+}
+
+function filterTreeOutput(treeOutput) {
+    const searchText = document.getElementById('searchInput').value.trim();
+    console.log(`searching for ${searchText}`)
+    if (!searchText) return treeOutput;
+
+    // Split search text into patterns
+    const patterns = searchText.split(/\s+/).filter(p => p);
+    
+    // Separate include and exclude patterns and prepare regex
+    const includePatterns = patterns
+        .filter(p => !p.startsWith('!'))
+        .map(p => {
+            const pattern = escapeRegExp(p);
+            // If pattern doesn't contain slash, make it match with or without slashes around it
+            return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
+        });
+    
+    const excludePatterns = patterns
+        .filter(p => p.startsWith('!'))
+        .map(p => {
+            const pattern = escapeRegExp(p.slice(1));
+            // If pattern doesn't contain slash, make it match with or without slashes around it
+            return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
+        });
+
+    // Filter lines
+    const lines = treeOutput.split('\n');
+    const filteredLines = lines.filter(line => {
+        // Always keep the root line
+        if (line === '.') return true;
+
+        // Check exclude patterns first
+        if (excludePatterns.some(pattern => pattern.test(line))) {
+            return false;
+        }
+
+        // If there are include patterns, at least one must match
+        if (includePatterns.length > 0) {
+            let included = includePatterns.some(pattern => pattern.test(line));
+            console.log(`line ${line} included ${included}`)
+            return included;
+        }
+
+        // If no include patterns, keep the line
+        return true;
+    });
+
+    // Ensure tree structure remains valid
+    return maintainTreeStructure(filteredLines);
+}
+
+function maintainTreeStructure(lines) {
+    const result = [lines[0]]; // Keep root
+    const indentStack = [0];
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const indent = line.search(/\S/); // Find first non-whitespace character
+
+        // Keep track of current indent level
+        while (indentStack[indentStack.length - 1] >= indent) {
+            indentStack.pop();
+        }
+
+        // If parent line was included, include this line
+        if (indentStack.length > 0) {
+            result.push(line);
+        }
+
+        indentStack.push(indent);
+    }
+
+    return result.join('\n');
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Replace throttle with debounce function
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            func.apply(this, args);
+        }, wait);
+    }
 }
