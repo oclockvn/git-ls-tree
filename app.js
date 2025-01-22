@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputText = document.getElementById('outputText');
     const copyBtn = document.getElementById('copyBtn');
     const importBtn = document.getElementById('importBtn');
+    const clearBtn = document.getElementById('clearBtn');
     const commentToggle = document.getElementById('commentToggle');
     const trailingToggle = document.getElementById('trailingToggle');
 
@@ -55,6 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => {
                 console.error('Failed to copy text:', err);
             });
+    });
+
+    // Clear button functionality
+    clearBtn.addEventListener('click', () => {
+        inputText.value = '';
+        processInput('');
+        localStorage.setItem('mirrorText', '');
     });
 }); 
 

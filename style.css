@@ -47,6 +47,16 @@ body {
     background-color: var(--border-color);
 }
 
+#clearBtn {
+    background-color: var(--bg-lighter);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+#clearBtn:hover {
+    background-color: var(--border-color);
+}
+
 button {
     padding: 0.35rem 0.75rem;
     background-color: var(--primary-color);
