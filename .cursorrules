@@ -10,3 +10,6 @@ A web app that takes a list of file paths and converts them into a tree structur
 - The app will convert the file paths into a tree structure
 - The app will display the tree structure in a readable format
 - The app will allow the user to copy the tree structure to the clipboard
+
+## Git rules
+- Generate one line of commit message for each commit
