@@ -122,6 +122,7 @@ function formatTreeOutput(treeOutput) {
 }
 
 function convertToTreeStructure(files) {
+    if (!files || files.length === 0) return '';
     const root = {};
     const orderMap = new Map(); // Track insertion order
 

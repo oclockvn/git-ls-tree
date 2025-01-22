@@ -26,6 +26,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
 }
 
 .top-section {
@@ -35,6 +36,9 @@ body {
     gap: 1rem;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 #importBtn {
@@ -157,6 +161,8 @@ button:hover {
     gap: 1rem;
     padding: 0.75rem;
     background-color: var(--bg-dark);
+    overflow: auto;
+    min-height: 0;
 }
 
 #inputText, .output-panel {
