@@ -84,7 +84,8 @@ function processInput(text) {
         .filter(line => line.trim() !== '');  // Remove empty lines
     
     // Convert to tree structure and display
-    const treeOutput = convertToTreeStructure(files);
+    const filteredFiles = applyFilter(files);
+    const treeOutput = convertToTreeStructure(filteredFiles);
     const formattedOutput = formatTreeOutput(treeOutput);
     document.getElementById('outputText').textContent = formattedOutput;
 }
@@ -204,10 +205,10 @@ function convertToTreeStructure(files) {
     return '.\n' + buildTree(root);
 }
 
-function filterTreeOutput(treeOutput) {
+function applyFilter(files) {
     const searchText = document.getElementById('searchInput').value.trim();
-    console.log(`searching for ${searchText}`)
-    if (!searchText) return treeOutput;
+    console.log(`searching for ${searchText}`);
+    if (!searchText) return files;
 
     // Split search text into patterns
     const patterns = searchText.split(/\s+/).filter(p => p);
@@ -229,30 +230,23 @@ function filterTreeOutput(treeOutput) {
             return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
         });
 
-    // Filter lines
-    const lines = treeOutput.split('\n');
-    const filteredLines = lines.filter(line => {
-        // Always keep the root line
-        if (line === '.') return true;
-
+    // Filter files directly
+    return files.filter(file => {
         // Check exclude patterns first
-        if (excludePatterns.some(pattern => pattern.test(line))) {
+        if (excludePatterns.some(pattern => pattern.test(file))) {
             return false;
         }
 
         // If there are include patterns, at least one must match
         if (includePatterns.length > 0) {
-            let included = includePatterns.some(pattern => pattern.test(line));
-            console.log(`line ${line} included ${included}`)
+            let included = includePatterns.some(pattern => pattern.test(file));
+            console.log(`file ${file} included ${included}`);
             return included;
         }
 
-        // If no include patterns, keep the line
+        // If no include patterns, keep the file
         return true;
     });
-
-    // Ensure tree structure remains valid
-    return maintainTreeStructure(filteredLines);
 }
 
 function maintainTreeStructure(lines) {
