@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputText = document.getElementById('inputText');
     const outputText = document.getElementById('outputText');
     const copyBtn = document.getElementById('copyBtn');
+    const commentToggle = document.getElementById('commentToggle');
 
     // Load saved text from localStorage if it exists
     const savedText = localStorage.getItem('mirrorText');
@@ -15,6 +16,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = e.target.value;
         processInput(text);
         localStorage.setItem('mirrorText', text);
+    });
+
+    // Handle comment toggle changes
+    commentToggle.addEventListener('change', () => {
+        processInput(inputText.value);
     });
 
     // Copy button functionality
@@ -40,7 +46,29 @@ function processInput(text) {
     
     // Convert to tree structure and display
     const treeOutput = convertToTreeStructure(files);
-    document.getElementById('outputText').textContent = treeOutput;
+    const formattedOutput = formatTreeOutput(treeOutput);
+    document.getElementById('outputText').textContent = formattedOutput;
+}
+
+function formatTreeOutput(treeOutput) {
+    const commentToggle = document.getElementById('commentToggle');
+    if (!commentToggle.checked) return treeOutput;
+
+    // Find the longest line length without comments
+    const lines = treeOutput.split('\n');
+    const maxLength = Math.max(...lines.map(line => line.length));
+
+    // Add comments aligned to the right
+    return lines
+        .map(line => {
+            // Only add comment to lines containing folders (lines with ├── or └──)
+            if (line.includes('──')) {
+                const padding = ' '.repeat(maxLength - line.length);
+                return line + padding + ' #';
+            }
+            return line;
+        })
+        .join('\n');
 }
 
 function convertToTreeStructure(files) {
