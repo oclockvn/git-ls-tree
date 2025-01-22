@@ -13,3 +13,6 @@ A web app that takes a list of file paths and converts them into a tree structur
 
 ## Git rules
 - Generate one line of commit message for each commit
+
+## Cursor rules
+- Suggest changes to the .cursorrules file when you find the patterns are not mentioned
