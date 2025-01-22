@@ -35,7 +35,16 @@ body {
     gap: 1rem;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
-    justify-content: flex-end;
+}
+
+#importBtn {
+    background-color: var(--bg-lighter);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+#importBtn:hover {
+    background-color: var(--border-color);
 }
 
 button {

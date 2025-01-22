@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputText = document.getElementById('inputText');
     const outputText = document.getElementById('outputText');
     const copyBtn = document.getElementById('copyBtn');
+    const importBtn = document.getElementById('importBtn');
     const commentToggle = document.getElementById('commentToggle');
     const trailingToggle = document.getElementById('trailingToggle');
 
@@ -11,6 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
         inputText.value = savedText;
         processInput(savedText);
     }
+
+    // Import from clipboard functionality
+    importBtn.addEventListener('click', () => {
+        navigator.clipboard.readText()
+            .then(text => {
+                inputText.value = text;
+                processInput(text);
+                localStorage.setItem('mirrorText', text);
+            })
+            .catch(err => {
+                console.error('Failed to read clipboard:', err);
+            });
+    });
 
     // Update output and save to localStorage when input changes
     inputText.addEventListener('input', (e) => {

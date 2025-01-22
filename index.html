@@ -12,6 +12,8 @@
 <body>
     <div class="container">
         <header class="top-section">
+            <button id="importBtn">Import from clipboard</button>
+            <div style="flex: 1"></div>  <!-- Spacer to push other items to the right -->
             <button id="copyBtn">Copy</button>
             <div class="toggle-group">
                 <label class="toggle">
@@ -19,7 +21,7 @@
                     <span>Comment</span>
                 </label>
                 <label class="toggle">
-                    <input type="checkbox" id="trailingToggle">
+                    <input type="checkbox" id="trailingToggle" checked>
                     <span>Trailing</span>
                 </label>
             </div>
