@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Mirror App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="top-section">
+            <button id="copyBtn">Copy</button>
+            <button id="shareBtn">Share</button>
+            <div class="toggle-group">
+                <label class="toggle">
+                    <input type="checkbox" id="fancyToggle">
+                    <span>Fancy</span>
+                </label>
+                <label class="toggle">
+                    <input type="checkbox" id="fullPathToggle">
+                    <span>Full path</span>
+                </label>
+                <label class="toggle">
+                    <input type="checkbox" id="trailingToggle">
+                    <span>Trailing</span>
+                </label>
+                <label class="toggle">
+                    <input type="checkbox" id="rootToggle">
+                    <span>Root</span>
+                </label>
+            </div>
+        </header>
+
+        <main class="middle-section">
+            <textarea id="inputText" placeholder="Enter your text here..."></textarea>
+            <div id="outputText" class="output-panel"></div>
+        </main>
+
+        <footer class="bottom-section">
+            <span class="app-info">Last deployed on 2024/01/16 at 06:50:02</span>
+            <a href="https://github.com" class="github-link">View the source on GitHub</a>
+        </footer>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 
