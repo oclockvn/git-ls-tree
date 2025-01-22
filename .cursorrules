@@ -1,0 +1,12 @@
+A web app that takes a list of file paths and converts them into a tree structure.
+
+## Technologies
+- HTML
+- CSS
+- JavaScript
+
+## Features
+- User can input a list of file paths
+- The app will convert the file paths into a tree structure
+- The app will display the tree structure in a readable format
+- The app will allow the user to copy the tree structure to the clipboard
