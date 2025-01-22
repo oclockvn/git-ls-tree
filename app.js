@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputText = document.getElementById('outputText');
     const copyBtn = document.getElementById('copyBtn');
     const commentToggle = document.getElementById('commentToggle');
+    const trailingToggle = document.getElementById('trailingToggle');
 
     // Load saved text from localStorage if it exists
     const savedText = localStorage.getItem('mirrorText');
@@ -20,6 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle comment toggle changes
     commentToggle.addEventListener('change', () => {
+        processInput(inputText.value);
+    });
+
+    // Handle trailing toggle changes
+    trailingToggle.addEventListener('change', () => {
         processInput(inputText.value);
     });
 
@@ -52,21 +58,43 @@ function processInput(text) {
 
 function formatTreeOutput(treeOutput) {
     const commentToggle = document.getElementById('commentToggle');
-    if (!commentToggle.checked) return treeOutput;
+    const trailingToggle = document.getElementById('trailingToggle');
+    
+    // If no formatting needed, return original output
+    if (!commentToggle.checked && !trailingToggle.checked) {
+        return treeOutput;
+    }
 
-    // Find the longest line length without comments
     const lines = treeOutput.split('\n');
-    const maxLength = Math.max(...lines.map(line => line.length));
+    
+    // Find the longest line length without any formatting
+    const maxLength = Math.max(...lines.map(line => {
+        // Get base length without any formatting
+        return line.length;
+    }));
 
-    // Add comments aligned to the right
+    // Format each line
     return lines
         .map(line => {
-            // Only add comment to lines containing folders (lines with ├── or └──)
-            if (line.includes('──')) {
-                const padding = ' '.repeat(maxLength - line.length);
-                return line + padding + ' #';
+            if (!line.includes('──')) {
+                return line; // Return root line unchanged
             }
-            return line;
+
+            let formattedLine = line;
+
+            // Add trailing slash if enabled
+            if (trailingToggle.checked) {
+                formattedLine += '/';
+            }
+
+            // Add comment if enabled
+            if (commentToggle.checked) {
+                const currentLength = formattedLine.length;
+                const padding = ' '.repeat(maxLength - line.length + (trailingToggle.checked ? 0 : 1));
+                formattedLine += padding + ' #';
+            }
+
+            return formattedLine;
         })
         .join('\n');
 }
