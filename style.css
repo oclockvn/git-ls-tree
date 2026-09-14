@@ -236,10 +236,11 @@ button:hover {
 .search-container {
     flex: 1;
     margin: 0 1rem;
+    display: flex;
+    gap: 0.5rem;
 }
 
-#searchInput {
-    width: 100%;
+#searchInput, #depthInput {
     height: 28px; /* Match button height */
     background-color: var(--bg-lighter);
     border: 1px solid var(--border-color);
@@ -252,10 +253,19 @@ button:hover {
     transition: border-color 0.2s ease;
 }
 
-#searchInput:focus {
+#searchInput {
+    flex: 1;
+}
+
+#depthInput {
+    width: 70px;
+    flex: none;
+}
+
+#searchInput:focus, #depthInput:focus {
     border-color: var(--primary-color);
 }
 
-#searchInput::placeholder {
+#searchInput::placeholder, #depthInput::placeholder {
     color: var(--text-secondary);
-} 
+}

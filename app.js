@@ -7,9 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const commentToggle = document.getElementById('commentToggle');
     const trailingToggle = document.getElementById('trailingToggle');
     const searchInput = document.getElementById('searchInput');
+    const depthInput = document.getElementById('depthInput');
 
     // Load saved text from localStorage if it exists
-    const savedText = localStorage.getItem('mirrorText');
+    const savedText = safeGetItem('mirrorText');
     if (savedText) {
         inputText.value = savedText;
         processInput(savedText);
@@ -21,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(text => {
                 inputText.value = text;
                 processInput(text);
-                localStorage.setItem('mirrorText', text);
+                safeSetItem('mirrorText', text);
             })
             .catch(err => {
                 console.error('Failed to read clipboard:', err);
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputText.addEventListener('input', (e) => {
         const text = e.target.value;
         processInput(text);
-        localStorage.setItem('mirrorText', text);
+        safeSetItem('mirrorText', text);
     });
 
     // Handle comment toggle changes
@@ -63,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearBtn.addEventListener('click', () => {
         inputText.value = '';
         processInput('');
-        localStorage.setItem('mirrorText', '');
+        safeSetItem('mirrorText', '');
     });
 
     // Create debounced version of processInput
@@ -75,7 +76,30 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('input', () => {
         debouncedProcessInput(inputText.value);
     });
+
+    // Handle depth input changes
+    depthInput.addEventListener('input', () => {
+        debouncedProcessInput(inputText.value);
+    });
 });
+
+// localStorage can throw (QuotaExceededError, private-mode SecurityError, etc.)
+function safeSetItem(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (err) {
+        console.error('Failed to save to localStorage:', err);
+    }
+}
+
+function safeGetItem(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (err) {
+        console.error('Failed to read from localStorage:', err);
+        return null;
+    }
+}
 
 function processInput(text) {
     // Split the input text into an array of files
@@ -102,10 +126,8 @@ function formatTreeOutput(treeOutput) {
     const lines = treeOutput.split('\n');
     
     // Find the longest line length without any formatting
-    const maxLength = Math.max(...lines.map(line => {
-        // Get base length without any formatting
-        return line.length;
-    }));
+    // (loop instead of Math.max(...lines) to avoid blowing the call stack on large trees)
+    const maxLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
 
     // Format each line
     return lines
@@ -136,7 +158,8 @@ function formatTreeOutput(treeOutput) {
 function convertToTreeStructure(files) {
     if (!files || files.length === 0) return '';
     const root = {};
-    const orderMap = new Map(); // Track insertion order
+    const orderMap = new WeakMap(); // Track insertion order, keyed by node object (not name) so
+                                     // same-named folders in different branches can't collide
 
     /**
      * Recursively adds a path to the tree structure
@@ -149,44 +172,50 @@ function convertToTreeStructure(files) {
         if (pathParts.length === 0) return;
 
         const [currentPart, ...remainingParts] = pathParts;
-        
+
         // Skip empty path segments
         if (!currentPart) {
             addPathToTree(node, remainingParts, order);
             return;
         }
 
-        // Check if this is a file (has extension and is last part)
-        const isFile = remainingParts.length === 0 && currentPart.includes('.');
+        // git ls-tree output only lists files (blobs), so the last segment of any
+        // path is always a file, never an empty directory - skip it regardless of name
+        const isFile = remainingParts.length === 0;
         if (isFile) return;
 
         // Create node if it doesn't exist and track its order
         if (!node[currentPart]) {
             node[currentPart] = {};
-            orderMap.set(currentPart, order);
+            orderMap.set(node[currentPart], order);
         }
-        
+
         // Process remaining path parts
         addPathToTree(node[currentPart], remainingParts, order);
     }
+
+    const maxDepth = getMaxDepth();
 
     /**
      * Generates ASCII tree representation of the directory structure
      * @param {Object} node - Current node in the tree
      * @param {string} prefix - Current line prefix for ASCII art
+     * @param {number} depth - Depth of the entries being rendered at this level (root's children = 1)
      * @returns {string} ASCII tree representation
      */
-    function buildTree(node, prefix = '') {
+    function buildTree(node, prefix = '', depth = 1) {
         const entries = Object.keys(node)
-            .sort((a, b) => orderMap.get(a) - orderMap.get(b)); // Sort by insertion order
-        
+            .sort((a, b) => orderMap.get(node[a]) - orderMap.get(node[b])); // Sort by insertion order
+
         return entries
             .map((entry, index) => {
                 const isLast = index === entries.length - 1;
                 const branch = isLast ? '└── ' : '├── ';
                 const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-                const subTree = buildTree(node[entry], nextPrefix);
-                
+                const subTree = (!maxDepth || depth < maxDepth)
+                    ? buildTree(node[entry], nextPrefix, depth + 1)
+                    : '';
+
                 return prefix + branch + entry + (subTree ? '\n' + subTree : '');
             })
             .join('\n');
@@ -205,6 +234,12 @@ function convertToTreeStructure(files) {
     return '.\n' + buildTree(root);
 }
 
+function getMaxDepth() {
+    const depthInput = document.getElementById('depthInput');
+    const value = parseInt(depthInput.value, 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function applyFilter(files) {
     const searchText = document.getElementById('searchInput').value.trim();
     console.log(`searching for ${searchText}`);
@@ -215,15 +250,15 @@ function applyFilter(files) {
     
     // Separate include and exclude patterns and prepare regex
     const includePatterns = patterns
-        .filter(p => !p.startsWith('!'))
+        .filter(p => !p.startsWith('!') && p.length > 0)
         .map(p => {
             const pattern = escapeRegExp(p);
             // If pattern doesn't contain slash, make it match with or without slashes around it
             return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
         });
-    
+
     const excludePatterns = patterns
-        .filter(p => p.startsWith('!'))
+        .filter(p => p.startsWith('!') && p.slice(1).length > 0) // ignore bare "!" - it would match everything
         .map(p => {
             const pattern = escapeRegExp(p.slice(1));
             // If pattern doesn't contain slash, make it match with or without slashes around it
