@@ -15,9 +15,10 @@
             <button id="importBtn">Import from clipboard</button>
             <button id="clearBtn">Clear</button>
             <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Filter folders...">
+                <input type="text" id="searchInput" placeholder="filter... e: {exact}, f: {fuzzy}, !: {exclude}, a/b: {child}">
+                <input type="number" id="depthInput" placeholder="Depth" min="1" max="100">
+                <button id="filterBtn">Filter</button>
             </div>
-            <button id="copyBtn">Copy</button>
             <div class="toggle-group">
                 <label class="toggle">
                     <input type="checkbox" id="commentToggle">
@@ -28,6 +29,7 @@
                     <span>Trailing</span>
                 </label>
             </div>
+            <button id="copyBtn">Copy</button>
         </header>
 
         <main class="middle-section">
@@ -36,10 +38,24 @@
         </main>
 
         <footer class="bottom-section">
-            <span class="app-info">Last deployed on 2025/01/23 at 06:50:02</span>
+            <span class="app-info">Last deployed on 2026/09/14 at 22:55:01</span>
             <a href="https://github.com/oclockvn/git-ls-tree/" class="github-link">View the source on GitHub</a>
         </footer>
     </div>
+
+    <div id="filterBackdrop" class="filter-backdrop"></div>
+    <aside id="filterPanel" class="filter-panel">
+        <div class="filter-panel-header">
+            <span>Filter folders</span>
+            <button id="filterCloseBtn" class="filter-close-btn" aria-label="Close">&times;</button>
+        </div>
+        <div class="filter-panel-actions">
+            <button id="filterSelectAllBtn">Select all</button>
+            <button id="filterClearAllBtn">Clear all</button>
+        </div>
+        <div id="filterTreeContainer" class="filter-tree-container"></div>
+    </aside>
+
     <script src="app.js"></script>
 </body>
 </html> 
