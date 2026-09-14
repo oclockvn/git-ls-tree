@@ -240,46 +240,115 @@ function getMaxDepth() {
     return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+// VSCode-style fuzzy match: query characters must appear in target, in order,
+// not necessarily contiguous. Case-insensitive. No scoring - match or no match.
+function fuzzyMatch(query, target) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const t = target.toLowerCase();
+    let qi = 0;
+    for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+        if (t[ti] === q[qi]) qi++;
+    }
+    return qi === q.length;
+}
+
+// Tests one path segment against one search word, per the active mode.
+function segmentMatches(segment, word, mode) {
+    if (mode === 'exact') return segment.toLowerCase() === word.toLowerCase();
+    if (mode === 'fuzzy') return fuzzyMatch(word, segment);
+    return segment.toLowerCase().includes(word.toLowerCase()); // 'contains' (default mode)
+}
+
+// Finds the earliest run of consecutive segments (starting at/after startIndex)
+// that matches subwords one-for-one, e.g. subwords ["src", "utils"] only matches
+// two ADJACENT segments "src" then "utils" - no gap allowed within a group.
+// Returns the segment index right after the matched run, or -1 if none found.
+function findGroupMatch(subwords, segments, mode, startIndex) {
+    for (let start = startIndex; start <= segments.length - subwords.length; start++) {
+        let matched = true;
+        for (let i = 0; i < subwords.length; i++) {
+            if (!segmentMatches(segments[start + i], subwords[i], mode)) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) return start + subwords.length;
+    }
+    return -1;
+}
+
+// Groups must match segments in order (left-to-right); gaps BETWEEN groups are
+// allowed, but a group's own subwords must match a CONSECUTIVE run of segments -
+// e.g. groups [["types"], ["finance"]] (from "types finance") match segments
+// [..., "types", "billing", "finance"], but group [["src", "utils"]] (from
+// "src/utils") only matches "utils" as a direct child of "src".
+function segmentsMatchInOrder(groups, segments, mode) {
+    let cursor = 0;
+    for (const group of groups) {
+        const next = findGroupMatch(group, segments, mode, cursor);
+        if (next === -1) return false;
+        cursor = next;
+    }
+    return true;
+}
+
+// Splits a token on "/" into a group of subwords, dropping empty parts
+// (handles stray/leading/trailing slashes like "src/" or "/utils").
+function toGroup(token) {
+    return token.split('/').filter(part => part.length > 0);
+}
+
+// Search text starts with an optional mode prefix:
+//   e:{words} - each word must exactly equal a path segment
+//   f:{words} - each word must fuzzy-match a path segment
+//   {words}   - each word must be contained (substring) in a path segment
+// Space-separated words may match anywhere deeper (gaps allowed, order respected).
+// A word containing "/" (e.g. "src/utils") requires its parts to be direct,
+// consecutive parent/child segments instead. A "!word" token excludes any file
+// with a matching group anywhere in its path.
+function parseSearch(searchText) {
+    let mode = 'contains';
+    let rest = searchText;
+    const lower = searchText.toLowerCase();
+    if (lower.startsWith('e:')) {
+        mode = 'exact';
+        rest = searchText.slice(2);
+    } else if (lower.startsWith('f:')) {
+        mode = 'fuzzy';
+        rest = searchText.slice(2);
+    }
+
+    const tokens = rest.split(/\s+/).filter(t => t);
+    const includeGroups = tokens
+        .filter(t => !t.startsWith('!'))
+        .map(toGroup)
+        .filter(g => g.length > 0);
+    const excludeGroups = tokens
+        .filter(t => t.startsWith('!'))
+        .map(t => toGroup(t.slice(1)))
+        .filter(g => g.length > 0); // ignore bare "!" (or "!/") - it would match everything
+
+    return { mode, includeGroups, excludeGroups };
+}
+
 function applyFilter(files) {
     const searchText = document.getElementById('searchInput').value.trim();
-    console.log(`searching for ${searchText}`);
     if (!searchText) return files;
 
-    // Split search text into patterns
-    const patterns = searchText.split(/\s+/).filter(p => p);
-    
-    // Separate include and exclude patterns and prepare regex
-    const includePatterns = patterns
-        .filter(p => !p.startsWith('!') && p.length > 0)
-        .map(p => {
-            const pattern = escapeRegExp(p);
-            // If pattern doesn't contain slash, make it match with or without slashes around it
-            return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
-        });
+    const { mode, includeGroups, excludeGroups } = parseSearch(searchText);
 
-    const excludePatterns = patterns
-        .filter(p => p.startsWith('!') && p.slice(1).length > 0) // ignore bare "!" - it would match everything
-        .map(p => {
-            const pattern = escapeRegExp(p.slice(1));
-            // If pattern doesn't contain slash, make it match with or without slashes around it
-            return new RegExp(pattern.includes('/') ? pattern : `.*[/]?${pattern}[/]?.*`, 'i');
-        });
-
-    // Filter files directly
     return files.filter(file => {
-        // Check exclude patterns first
-        if (excludePatterns.some(pattern => pattern.test(file))) {
+        const segments = file.split('/').filter(s => s !== '');
+
+        if (excludeGroups.some(group => findGroupMatch(group, segments, mode, 0) !== -1)) {
             return false;
         }
 
-        // If there are include patterns, at least one must match
-        if (includePatterns.length > 0) {
-            let included = includePatterns.some(pattern => pattern.test(file));
-            console.log(`file ${file} included ${included}`);
-            return included;
+        if (includeGroups.length > 0) {
+            return segmentsMatchInOrder(includeGroups, segments, mode);
         }
 
-        // If no include patterns, keep the file
         return true;
     });
 }
@@ -306,10 +375,6 @@ function maintainTreeStructure(lines) {
     }
 
     return result.join('\n');
-}
-
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Replace throttle with debounce function

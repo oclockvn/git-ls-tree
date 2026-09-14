@@ -54,7 +54,7 @@ function loadApp() {
     const factory = new Function(
         'document', 'localStorage', 'navigator', 'console',
         src + `
-        return { processInput, convertToTreeStructure, applyFilter, formatTreeOutput, escapeRegExp, maintainTreeStructure, debounce, getMaxDepth };
+        return { processInput, convertToTreeStructure, applyFilter, formatTreeOutput, fuzzyMatch, segmentMatches, segmentsMatchInOrder, findGroupMatch, toGroup, parseSearch, maintainTreeStructure, debounce, getMaxDepth };
         `
     );
     const api = factory(document, localStorage, navigator, console_);
