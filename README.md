@@ -1,22 +1,34 @@
-# File Path Tree Generator
+# git ls-tree
 
-A web application that converts a list of file paths into a readable tree structure. This tool helps visualize file hierarchies in a clear and organized manner.
+Web app: paste flat file-path list -> tree view. Search, filter, depth-limit, copy output.
+
+## Screenshot
+
+![screenshot](screenshot.png)
 
 ## Features
 
-- Convert file paths into a tree structure
-- User-friendly interface
-- Copy tree structure to clipboard
-- Instant visualization
-- Clean and modern design
+- Flat path list -> tree structure, instant render
+- Import from clipboard button (pair with `git ls-tree` output)
+- Search box with mini query syntax:
+  - `word` — substring match on path segment
+  - `e:{word}` — exact segment match
+  - `f:{word}` — fuzzy match (VSCode-style, chars in order)
+  - `!word` — exclude paths matching word
+  - `a/b` — match consecutive parent/child segments
+- Depth input — cap tree render depth
+- Filter panel — checkbox tree to include/exclude specific folders (persisted in localStorage), with Select all / Clear all
+- Comment toggle — append aligned comments to output lines
+- Trailing toggle — append trailing `/` to folder names
+- Copy button — copy rendered tree to clipboard
 
 ## Usage
 
-```
-git ls-tree | clip # copy project files to clipboard
+```bash
+git ls-tree -r --name-only HEAD | clip
 ```
 
-Then hit "Import from clipboard" button.
+Paste into the left textarea, or click **Import from clipboard**. Tree renders on the right. Adjust search/depth/filters as needed, then **Copy**.
 
 ## Example
 
@@ -65,4 +77,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. 
+SOFTWARE.
