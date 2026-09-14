@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const trailingToggle = document.getElementById('trailingToggle');
     const searchInput = document.getElementById('searchInput');
     const depthInput = document.getElementById('depthInput');
+    const filterBtn = document.getElementById('filterBtn');
+    const filterPanel = document.getElementById('filterPanel');
+    const filterBackdrop = document.getElementById('filterBackdrop');
+    const filterCloseBtn = document.getElementById('filterCloseBtn');
+    const filterSelectAllBtn = document.getElementById('filterSelectAllBtn');
+    const filterClearAllBtn = document.getElementById('filterClearAllBtn');
 
     // Load saved text from localStorage if it exists
     const savedText = safeGetItem('mirrorText');
@@ -81,6 +87,41 @@ document.addEventListener('DOMContentLoaded', () => {
     depthInput.addEventListener('input', () => {
         debouncedProcessInput(inputText.value);
     });
+
+    // Filter panel: slides in from the right, holds the checkbox folder tree
+    function openFilterPanel() {
+        filterPanel.classList.add('open');
+        filterBackdrop.classList.add('open');
+        renderFilterTree(splitLines(inputText.value));
+    }
+    function closeFilterPanel() {
+        filterPanel.classList.remove('open');
+        filterBackdrop.classList.remove('open');
+    }
+
+    filterBtn.addEventListener('click', openFilterPanel);
+    filterBackdrop.addEventListener('click', closeFilterPanel);
+    filterCloseBtn.addEventListener('click', closeFilterPanel);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && filterPanel.classList.contains('open')) {
+            closeFilterPanel();
+        }
+    });
+
+    filterSelectAllBtn.addEventListener('click', () => {
+        excludedPaths.clear();
+        persistFilterState();
+        processInput(inputText.value);
+    });
+
+    filterClearAllBtn.addEventListener('click', () => {
+        // Excluding just the top-level folders is enough - hiding a folder
+        // already hides everything nested under it (see isPathExcluded).
+        const { root, pathMap } = buildDirTree(splitLines(inputText.value));
+        excludedPaths = new Set(Object.keys(root).map(name => pathMap.get(root[name])));
+        persistFilterState();
+        processInput(inputText.value);
+    });
 });
 
 // localStorage can throw (QuotaExceededError, private-mode SecurityError, etc.)
@@ -101,17 +142,185 @@ function safeGetItem(key) {
     }
 }
 
-function processInput(text) {
-    // Split the input text into an array of files
-    const files = text.trim()
+// ---- Filter panel: folder tree with checkboxes to hide a folder (and everything nested in it) ----
+
+// Full "a/b/c" folder paths the user has explicitly unchecked. A path being
+// excluded also hides everything nested under it - see isPathExcluded/hasExcludedAncestor.
+let excludedPaths = new Set(loadPathSet('excludedPaths'));
+// Full folder paths currently expanded in the checkbox tree, so re-renders (on
+// every keystroke while the panel is open) don't collapse what the user opened.
+let expandedPaths = new Set(loadPathSet('expandedPaths'));
+
+function loadPathSet(key) {
+    const raw = safeGetItem(key);
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(p => typeof p === 'string') : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function persistFilterState() {
+    safeSetItem('excludedPaths', JSON.stringify(Array.from(excludedPaths)));
+    safeSetItem('expandedPaths', JSON.stringify(Array.from(expandedPaths)));
+}
+
+// A file is hidden if any ancestor directory (or the file's own immediate
+// directory) is in excludedPaths - unchecking a folder hides its whole subtree.
+function isPathExcluded(filePath) {
+    if (excludedPaths.size === 0) return false;
+    const parts = filePath.split('/').filter(p => p !== '');
+    let current = '';
+    for (let i = 0; i < parts.length - 1; i++) { // last part is the file itself, not a dir
+        current = current ? current + '/' + parts[i] : parts[i];
+        if (excludedPaths.has(current)) return true;
+    }
+    return false;
+}
+
+// Same ancestor walk as isPathExcluded, but for a folder path itself (used to
+// grey out/disable a descendant folder's checkbox when a parent is unchecked).
+function hasExcludedAncestor(path) {
+    const parts = path.split('/');
+    let current = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+        current = current ? current + '/' + parts[i] : parts[i];
+        if (excludedPaths.has(current)) return true;
+    }
+    return false;
+}
+
+function isFilterPanelOpen() {
+    const panel = document.getElementById('filterPanel');
+    return !!panel && !!panel.classList && panel.classList.contains('open');
+}
+
+// Rebuilds the checkbox tree panel from the current (unfiltered) file list.
+// Only the currently-expanded branches are materialized as DOM - collapsed
+// folders stay as plain objects in memory until the user expands them.
+function renderFilterTree(files) {
+    const container = document.getElementById('filterTreeContainer');
+    if (!container) return;
+
+    const { root, orderMap, pathMap } = buildDirTree(files);
+
+    // Drop stale entries for folders that no longer exist in the current input,
+    // so localStorage doesn't grow unbounded across pastes.
+    const validPaths = new Set();
+    collectPaths(root, pathMap, validPaths);
+    for (const p of Array.from(excludedPaths)) if (!validPaths.has(p)) excludedPaths.delete(p);
+    for (const p of Array.from(expandedPaths)) if (!validPaths.has(p)) expandedPaths.delete(p);
+    persistFilterState();
+
+    container.textContent = '';
+    if (Object.keys(root).length === 0) {
+        container.textContent = 'No folders to filter.';
+        return;
+    }
+    container.appendChild(buildTreeList(root, orderMap, pathMap));
+}
+
+// WeakMap has no direct iteration - walk the tree to collect the set of paths
+// that actually exist right now (for pruning stale excluded/expanded entries).
+function collectPaths(node, pathMap, out) {
+    Object.keys(node).forEach(name => {
+        const child = node[name];
+        out.add(pathMap.get(child));
+        collectPaths(child, pathMap, out);
+    });
+}
+
+function buildTreeList(node, orderMap, pathMap) {
+    const ul = document.createElement('ul');
+    ul.className = 'filter-tree-list';
+    Object.keys(node)
+        .sort((a, b) => orderMap.get(node[a]) - orderMap.get(node[b]))
+        .forEach(name => {
+            ul.appendChild(createTreeNodeElement(name, node[name], orderMap, pathMap));
+        });
+    return ul;
+}
+
+function createTreeNodeElement(name, node, orderMap, pathMap) {
+    const path = pathMap.get(node);
+    const hasChildren = Object.keys(node).length > 0;
+    const disabledByAncestor = hasExcludedAncestor(path);
+    const isExpanded = expandedPaths.has(path);
+
+    const li = document.createElement('li');
+    li.className = 'filter-tree-item';
+
+    const row = document.createElement('div');
+    row.className = 'filter-tree-row';
+
+    const caret = document.createElement('span');
+    caret.className = 'filter-tree-caret' + (hasChildren ? '' : ' filter-tree-caret-empty');
+    if (hasChildren) {
+        caret.textContent = isExpanded ? '▼' : '▶';
+        caret.addEventListener('click', () => {
+            if (expandedPaths.has(path)) {
+                expandedPaths.delete(path);
+            } else {
+                expandedPaths.add(path);
+            }
+            persistFilterState();
+            renderFilterTree(splitLines(document.getElementById('inputText').value));
+        });
+    }
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = disabledByAncestor ? false : !excludedPaths.has(path);
+    checkbox.disabled = disabledByAncestor;
+    checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+            excludedPaths.delete(path);
+        } else {
+            excludedPaths.add(path);
+        }
+        persistFilterState();
+        processInput(document.getElementById('inputText').value);
+    });
+
+    const label = document.createElement('span');
+    label.className = 'filter-tree-label' + (disabledByAncestor ? ' filter-tree-label-disabled' : '');
+    label.textContent = name;
+
+    row.appendChild(caret);
+    row.appendChild(checkbox);
+    row.appendChild(label);
+    li.appendChild(row);
+
+    if (hasChildren && isExpanded) {
+        li.appendChild(buildTreeList(node, orderMap, pathMap));
+    }
+
+    return li;
+}
+
+function splitLines(text) {
+    return text.trim()
         .split(/\r?\n/)
         .filter(line => line.trim() !== '');  // Remove empty lines
-    
+}
+
+function processInput(text) {
+    const files = splitLines(text);
+
     // Convert to tree structure and display
-    const filteredFiles = applyFilter(files);
-    const treeOutput = convertToTreeStructure(filteredFiles);
+    const searchFiltered = applyFilter(files);
+    const visibleFiles = searchFiltered.filter(file => !isPathExcluded(file));
+    const treeOutput = convertToTreeStructure(visibleFiles);
     const formattedOutput = formatTreeOutput(treeOutput);
     document.getElementById('outputText').textContent = formattedOutput;
+
+    // Keep the filter panel's checkbox tree in sync while it's open; skip
+    // the extra work entirely otherwise so normal typing is unaffected.
+    if (isFilterPanelOpen()) {
+        renderFilterTree(files);
+    }
 }
 
 function formatTreeOutput(treeOutput) {
@@ -155,19 +364,17 @@ function formatTreeOutput(treeOutput) {
         .join('\n');
 }
 
-function convertToTreeStructure(files) {
-    if (!files || files.length === 0) return '';
+// Builds a directory-only tree from git ls-tree style file paths. git ls-tree
+// only ever lists files (blobs), so the last segment of any path is always a
+// file and is dropped - only directories become nodes. Shared by the text
+// tree renderer (convertToTreeStructure) and the checkbox filter tree.
+function buildDirTree(files) {
     const root = {};
     const orderMap = new WeakMap(); // Track insertion order, keyed by node object (not name) so
                                      // same-named folders in different branches can't collide
+    const pathMap = new WeakMap();  // Full "a/b/c" path, keyed by node object
 
-    /**
-     * Recursively adds a path to the tree structure
-     * @param {Object} node - Current node in the tree
-     * @param {string[]} pathParts - Array of path segments
-     * @param {number} order - Insertion order of the path
-     */
-    function addPathToTree(node, pathParts, order) {
+    function addPathToTree(node, pathParts, order, parentPath) {
         // Base case: no more path parts to process
         if (pathParts.length === 0) return;
 
@@ -175,7 +382,7 @@ function convertToTreeStructure(files) {
 
         // Skip empty path segments
         if (!currentPart) {
-            addPathToTree(node, remainingParts, order);
+            addPathToTree(node, remainingParts, order, parentPath);
             return;
         }
 
@@ -184,16 +391,33 @@ function convertToTreeStructure(files) {
         const isFile = remainingParts.length === 0;
         if (isFile) return;
 
-        // Create node if it doesn't exist and track its order
+        // Create node if it doesn't exist and track its order/path
         if (!node[currentPart]) {
             node[currentPart] = {};
             orderMap.set(node[currentPart], order);
+            pathMap.set(node[currentPart], parentPath ? parentPath + '/' + currentPart : currentPart);
         }
 
         // Process remaining path parts
-        addPathToTree(node[currentPart], remainingParts, order);
+        addPathToTree(node[currentPart], remainingParts, order, pathMap.get(node[currentPart]));
     }
 
+    files.forEach((file, index) => {
+        const pathParts = file
+            .trim()
+            .split('/')
+            .filter(part => part !== '');
+
+        addPathToTree(root, pathParts, index, '');
+    });
+
+    return { root, orderMap, pathMap };
+}
+
+function convertToTreeStructure(files) {
+    if (!files || files.length === 0) return '';
+
+    const { root, orderMap } = buildDirTree(files);
     const maxDepth = getMaxDepth();
 
     /**
@@ -220,16 +444,6 @@ function convertToTreeStructure(files) {
             })
             .join('\n');
     }
-
-    // Process each file path with its order
-    files.forEach((file, index) => {
-        const pathParts = file
-            .trim()
-            .split('/')
-            .filter(part => part !== '');
-
-        addPathToTree(root, pathParts, index);
-    });
 
     return '.\n' + buildTree(root);
 }
